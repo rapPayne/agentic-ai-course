@@ -38,21 +38,19 @@ rendered = prompt.invoke({"role": "Software Engineer", "department": "Engineerin
 
 ## Output Parsers
 
-```python
-from langchain_core.output_parsers import StrOutputParser
-
-parser = StrOutputParser()   # plain text out
-```
-
-For structured data — a typed task list instead of a free-text blob you'd have to hand-parse — use structured output instead of a parser stage:
+If your output is structured, force the model to return it in that shape. `with_structured_output` guarantees the result actually matches:
 
 ```python
 from pydantic import BaseModel
 
-class TaskList(BaseModel):
-    tasks: list[str]
+class Task(BaseModel):
+    """One onboarding task."""
+    text: str
+    completed: bool = False
 
-structured_llm = llm.with_structured_output(TaskList)
+structured_llm = llm.with_structured_output(Task)
+result = await structured_llm.ainvoke("Give me the first onboarding task.")
+result.completed   # a real bool, no parsing needed
 ```
 
 ## LCEL Composition
@@ -60,12 +58,24 @@ structured_llm = llm.with_structured_output(TaskList)
 The pipe operator chains a prompt, a model, and a parser into one runnable — this is the current, recommended composition style. The older `LLMChain`/`SequentialChain` classes and `AgentExecutor` are legacy APIs and don't appear anywhere in this course.
 
 ```python
+from langchain_core.output_parsers import StrOutputParser
+
+parser = StrOutputParser()
 chain = prompt | llm | parser
 
 result = chain.invoke({"role": "Software Engineer", "department": "Engineering", "question": "What tools do I need on day one?"})
 ```
 
 Each stage's output becomes the next stage's input: the rendered prompt goes into the model, the model's response goes into the parser.
+
+The terminal stage doesn't have to be a string parser. Piping into `structured_llm` instead composes exactly the same way, and returns an already-validated `Task`:
+
+```python
+task_chain = prompt | structured_llm
+
+task = task_chain.invoke({"role": "Software Engineer", "department": "Engineering", "question": "What's my first onboarding task?"})
+task.completed   # a real bool — nothing left to parse
+```
 
 ## Invoking a Chain
 
@@ -82,13 +92,13 @@ The same chain produces genuinely different output for a Payroll Specialist in F
 
 ```python
 plan_prompt = ChatPromptTemplate.from_messages([
-    ("system", "Generate a first-week task list for a {role} in {department} at ADP."),
-    ("human", "Generate the task list now."),
+    ("system", "Generate the first onboarding task for a {role} in {department} at ADP."),
+    ("human", "Generate the task now."),
 ])
 
 plan_chain = plan_prompt | structured_llm
 
-task_list = await plan_chain.ainvoke({"role": "Payroll Specialist", "department": "Finance"})
+task = await plan_chain.ainvoke({"role": "Payroll Specialist", "department": "Finance"})
 ```
 
 This is the whole mechanism behind a route like `POST /ask` or `POST /plan` accepting role/department context — there's no separate personalization step, just what's in the prompt.
@@ -106,14 +116,14 @@ def flag_for_manager_review(user_id: str, reason: str) -> str:
     return "flagged"
 ```
 
-The docstring is not documentation for humans here — it's what the model reads to decide whether this tool fits the current request.
+The docstring is not just documentation for humans here. It's what the model reads to decide whether this tool should be invoked to satisfy the current prompt.
 
 ## Gotchas
 
 - `.invoke()` runs fine inside an `async def` route but blocks the event loop for every other request in flight on the same process — always call `.ainvoke()` from a route handler.
 - A prompt template's `{variable}` placeholders must match the dict keys passed to `.invoke()` exactly — a typo isn't caught when the chain is defined, only when it's called, and the error message points at the prompt, not the typo.
 - `.with_structured_output()` depends on the underlying model actually supporting structured or tool output — this isn't universal across every provider or model, so it's worth confirming for whichever one you're using.
-- The `@tool` decorator's docstring is load-bearing, not decorative — a vague description produces vague tool-selection behavior once a model is actually deciding whether to call it.
+- The `@tool` decorator's docstring is not decorative. A vague description produces vague tool-selection behavior once a model is actually deciding whether to call it.
 
 ## Quick Reference
 
