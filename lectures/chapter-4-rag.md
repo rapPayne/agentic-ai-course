@@ -129,4 +129,4 @@ sources = {d.metadata["source"] for d in retrieved_docs}
 
 ## Coming Up
 
-This whole pipeline is Phase 2's `POST /ask`: ingest ADP's HR policy documents once, then retrieve-and-cite on every question, with the similarity threshold above deciding when to say "I don't have a confident answer" instead of guessing.
+This whole pipeline is what sits behind `POST /ask`: ingest ADP's HR policy documents once, then retrieve-and-cite on every question, with the similarity threshold above deciding when to say "I don't have a confident answer" instead of guessing.

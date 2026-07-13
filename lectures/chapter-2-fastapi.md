@@ -2,7 +2,7 @@
 
 ## Overview
 
-FastAPI is the framework the entire inference server runs on, in both capstone phases. It maps roughly to Express with two differences that matter immediately: request/response bodies are typed `Pydantic` models instead of raw `req.body`/`res.json()` objects, and validation happens automatically from those type annotations instead of by hand in the handler. This chapter covers enough to build `POST /ask` and `POST /plan`, plus calling another HTTP service — the pattern Phase 2's agentic tools use to call back into the Node/Express database API. FastAPI's WebSocket support and streaming responses are out of scope for this course.
+FastAPI maps roughly to Express with two differences that matter immediately: request/response bodies are typed `Pydantic` models instead of raw `req.body`/`res.json()` objects, and validation happens automatically from those type annotations instead of by hand in the handler. This chapter covers enough to build simple POST routes that can call another HTTP service. FastAPI's WebSocket support and streaming responses are out of scope for this course.
 
 ## A Minimal App
 
@@ -19,6 +19,8 @@ async def health() -> dict:
 ```bash
 uv run uvicorn main:app --reload --port 8000
 ```
+
+`uvicorn` is the ASGI server that actually runs a FastAPI app — FastAPI just defines routes, it doesn't listen on a socket itself. `main:app` means "the `app` object in `main.py`," so it has to match your filename and variable name.
 
 Every running FastAPI app serves an interactive Swagger UI at `/docs` for free — no client setup required to try a route by hand.
 
@@ -64,6 +66,29 @@ async def ask(body: AskRequest) -> AskResponse:
 ```
 
 Returning a `BaseModel` instance serializes it to JSON automatically — no manual `res.json(...)` call.
+
+## Pydantic Field Types, Briefly
+
+A field can be any type hint: a plain type (`str`, `int`, `float`, `bool`), a generic (`list[str]`, `dict[str, int]`), or another `BaseModel` nested directly:
+
+```python
+class Task(BaseModel):
+    text: str
+    completed: bool = False
+
+class OnboardingPlan(BaseModel):
+    role: str
+    tasks: list[Task]          # nested model
+```
+
+Make a field optional/nullable with `| None`, plus a default so the caller can omit it:
+
+```python
+class AskResponse(BaseModel):
+    citation: str | None = None   # optional — omit or pass null
+```
+
+Without `= None`, `str | None` is still required (just nullable) — the caller must send the key, even if its value is `null`.
 
 ## Async Route Handlers
 
@@ -120,7 +145,7 @@ async def add_task(user_id: str, text: str, jwt: str) -> dict:
         return response.json()
 ```
 
-This is the exact pattern a Phase 2 tool uses to call `PATCH /users/:id/plan30Day` or `POST /tasks` on the Node/Express database API, forwarding the JWT it received from the front end rather than authenticating as itself.
+This is the pattern a tool one one server uses to hit an API on another server, forwarding the JWT it received from the front end rather than authenticating as itself.
 
 ## CORS
 
@@ -135,7 +160,7 @@ app.add_middleware(
 )
 ```
 
-Same problem, same one-line fix as Express's `cors()` package — the React dev server and the inference server run on different ports, which the browser treats as different origins.
+Same problem, same one-line fix as Express's `cors()` package — a React dev server and an inference server run on different ports which the browser treats as different origins.
 
 ## Error Handling
 
@@ -150,7 +175,7 @@ async def get_tasks(user_id: str) -> list[dict]:
     return tasks
 ```
 
-An uncaught exception anywhere in a handler returns a generic 500 by default. `HTTPException` is how you return a deliberate status code and message instead.
+An uncaught exception anywhere in a handler returns a generic 500 by default. `HTTPException` is how you return a deliberate status code and message instead. Unlike Express, where a response is something you construct and send (`res.status(404).json(...)`), FastAPI catches the raised exception for you and turns it into the HTTP response — `raise` is the mechanism for sending a non-200 response, not just an error signal.
 
 ## Environment Variables
 
@@ -210,4 +235,4 @@ uv run uvicorn main:app --reload --port 8000
 
 ## Coming Up
 
-This is the literal shape of `POST /ask` and `POST /plan` from the Phase 1 capstone spec. Once the LangChain chapter adds the chain that goes inside the handler body — the line where `answer_question` and `onboarding_chain.ainvoke` are still stubs above — the inference server's Phase 1 surface is complete.
+Once the LangChain chapter adds the chain that goes inside the handler body — the line where `answer_question` and `onboarding_chain.ainvoke` are still stubs above — these routes have a real chain behind them instead of a stub.

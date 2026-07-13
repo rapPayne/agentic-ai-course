@@ -2,7 +2,7 @@
 
 ## Overview
 
-Python is dynamically typed, interpreted, and indentation-sensitive — the syntax will be the biggest adjustment, not the concepts. This chapter is a bridge, not a Python course: it covers exactly the subset of the language the rest of this course leans on — `uv` for running code, type hints, core data structures, functions, `Pydantic.BaseModel`, control flow, `async`/`await`, error handling, modules, and string formatting. Idiomatic Python well outside that set — metaclasses, multiple inheritance, decorator authoring, `**kwargs` gymnastics — is out of scope; the capstone never needs it.
+Python is dynamically typed, interpreted, and indentation-sensitive — the syntax will be the biggest adjustment, not the concepts. This chapter is a bridge, not a Python course: it covers exactly the subset of the language the rest of this course leans on — `uv` for running code, type hints, core data structures, functions, `Pydantic.BaseModel`, control flow, `async`/`await`, error handling, modules, and string formatting. Idiomatic Python well outside that set — metaclasses, multiple inheritance, decorator authoring, `**kwargs` gymnastics — is out of scope for this course.
 
 ## Running Code with `uv`
 
@@ -114,6 +114,8 @@ except LowConfidenceError:
     answer = "I don't have a confident answer to that."
 finally:
     log_event("ask_answered")
+
+raise LowConfidenceError("no supporting chunks found")  # `throw` equivalent
 ```
 
 ## Imports and Modules

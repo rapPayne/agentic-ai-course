@@ -2,7 +2,7 @@
 
 ## Overview
 
-LangChain is not a framework that hides the LLM call — it's a thin, consistent interface over different providers plus a small set of composable pieces: prompts, models, and output parsers. This chapter builds the one pattern that is the entire Phase 1 inference server: a prompt template piped into a chat model piped into a parser. Agents, multi-step orchestration, and retrieval are out of scope here — those are the RAG and LangGraph chapters.
+LangChain is not a framework that hides the LLM call — it's a thin, consistent interface over different providers plus a small set of composable pieces: prompts, models, and output parsers. This chapter builds the core pattern the rest of this course leans on: a prompt template piped into a chat model piped into a parser. Agents, multi-step orchestration, and retrieval are out of scope here — those are the RAG and LangGraph chapters.
 
 ## Chat Models
 
@@ -34,7 +34,7 @@ prompt = ChatPromptTemplate.from_messages([
 rendered = prompt.invoke({"role": "Software Engineer", "department": "Engineering", "question": "What tools do I need on day one?"})
 ```
 
-`{variable}` placeholders are filled by the dict passed to `.invoke()` — this is the mechanism that turns Phase 1's role/department context into a personalized prompt.
+`{variable}` placeholders are filled by the dict passed to `.invoke()` — this is the mechanism that turns role/department context into a personalized prompt.
 
 ## Output Parsers
 
@@ -91,7 +91,7 @@ plan_chain = plan_prompt | structured_llm
 task_list = await plan_chain.ainvoke({"role": "Payroll Specialist", "department": "Finance"})
 ```
 
-This is the whole mechanism behind Phase 1's `POST /ask` and `POST /plan` accepting role/department context — there's no separate personalization step, just what's in the prompt.
+This is the whole mechanism behind a route like `POST /ask` or `POST /plan` accepting role/department context — there's no separate personalization step, just what's in the prompt.
 
 ## Tool Definitions with `@tool`
 
@@ -146,4 +146,4 @@ def my_tool(arg: str) -> str:
 
 ## Coming Up
 
-This chain — prompt to LLM to parser — is the entire Phase 1 inference server: `POST /ask` and `POST /plan` are each one chain like this behind a FastAPI route from Chapter 2. The `@tool` shape shown at the end returns in the LangGraph chapter as the mechanism behind Phase 2's manage-tasks, negotiate-plan, and flag-for-review tools.
+This chain — prompt to LLM to parser — is what sits behind a FastAPI route from Chapter 2: `POST /ask` and `POST /plan` are each one chain like this. The `@tool` shape shown at the end returns in the LangGraph chapter as the mechanism behind the manage-tasks, negotiate-plan, and flag-for-review tools.

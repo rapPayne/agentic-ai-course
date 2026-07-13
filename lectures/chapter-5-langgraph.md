@@ -2,7 +2,7 @@
 
 ## Overview
 
-A single LCEL chain is a straight line: prompt in, answer out. The Phase 2 assistant needs branches — does the model want to call a tool, or just answer? — and state carried across multiple steps: a new hire's role, tasks, and current plan, threaded through gather, retrieve, generate, and adapt. LangGraph models that as a graph instead of nested conditionals bolted onto a chain. This chapter builds that graph, plus the tool-calling loop that lets the assistant act mid-conversation. LangGraph's persistence/checkpointing features (`MemorySaver`, thread-level memory across requests) are out of scope: this capstone's inference server is stateless per request by design — every call carries its own context (task list, plan) from the database API rather than the graph remembering across calls.
+A single LCEL chain is a straight line: prompt in, answer out. A real assistant needs branches — does the model want to call a tool, or just answer? — and state carried across multiple steps: a new hire's role, tasks, and current plan, threaded through gather, retrieve, generate, and adapt. LangGraph models that as a graph instead of nested conditionals bolted onto a chain. This chapter builds that graph, plus the tool-calling loop that lets the assistant act mid-conversation. LangGraph's persistence/checkpointing features (`MemorySaver`, thread-level memory across requests) are out of scope: the inference server built in this course is stateless per request by design — every call carries its own context (task list, plan) from the database API rather than the graph remembering across calls.
 
 ## State
 
@@ -170,4 +170,4 @@ final_state = await compiled.ainvoke(initial_state)
 
 ## Coming Up
 
-This graph is the inference server's core for the rest of Phase 2 — `POST /plan` and `POST /plan/update` run the gather → retrieve → generate → adapt pipeline built above, and `POST /ask` routes into this same graph's tool-calling loop when a new hire asks the assistant to manage a task, negotiate a plan, or gets flagged as stuck.
+This graph is the inference server's core — `POST /plan` and `POST /plan/update` run the gather → retrieve → generate → adapt pipeline built above, and `POST /ask` routes into this same graph's tool-calling loop when a new hire asks the assistant to manage a task, negotiate a plan, or gets flagged as stuck.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Every mechanical piece is now in hand — chains, RAG, LangGraph, tools. This chapter is about judgment: when the pipeline should *not* just answer. It turns the capstone's Responsible-AI guardrails requirement into concrete, code-level patterns rather than a policy discussion. Nothing here is new syntax — it's a checklist for how you use what you already have.
+Every mechanical piece is now in hand — chains, RAG, LangGraph, tools. This chapter is about judgment: when the pipeline should *not* just answer. It turns Responsible-AI guardrails into concrete, code-level patterns rather than a policy discussion. Nothing here is new syntax — it's a checklist for how you use what you already have.
 
 ## Route by Topic Before Generating
 
@@ -89,6 +89,3 @@ Code-review checklist, one line per guardrail:
 - [ ] **Tool scoping** — `user_id`/`jwt` from state only, never from tool args or conversation text
 - [ ] **Authority cap** — system prompt and exposed tool set limit action to routine, reversible bookkeeping
 
-## Coming Up
-
-This is the last lecture. Everything from here is the capstone itself — Phase 1 project time starts with the chain from Chapter 3, and every line on this checklist becomes a specific, gradeable line in Phase 2.
