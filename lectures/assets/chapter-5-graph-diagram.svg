@@ -1,0 +1,87 @@
+<svg viewBox="0 0 1040 360" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>A LangGraph graph: nodes connected by edges, including a conditional branch and a loop</title>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrowLoop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b45309"/>
+    </marker>
+  </defs>
+
+  <!-- main flow edges -->
+  <line x1="76" y1="90" x2="108" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="230" y1="90" x2="268" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="390" y1="90" x2="428" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="550" y1="90" x2="588" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="710" y1="90" x2="748" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- branch 1: call_model -> END -->
+  <line x1="890" y1="90" x2="952" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="921" y="76" text-anchor="middle" font-size="13" fill="#334155">no tool_calls</text>
+
+  <!-- branch 2: call_model -> execute_tool -->
+  <line x1="790" y1="116" x2="790" y2="228" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="782" y="172" text-anchor="end" font-size="13" fill="#334155">tool_calls</text>
+
+  <!-- loop: execute_tool -> call_model -->
+  <line x1="850" y1="228" x2="850" y2="116" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowLoop)"/>
+  <text x="858" y="172" text-anchor="start" font-size="13" fill="#b45309">loop</text>
+
+  <!-- START -->
+  <circle cx="50" cy="90" r="26" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+  <text x="50" y="95" text-anchor="middle" font-size="13" font-weight="600" fill="#065f46">START</text>
+
+  <!-- pipeline nodes -->
+  <g>
+    <rect x="110" y="64" width="120" height="52" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+    <text x="170" y="95" text-anchor="middle" font-size="14" fill="#312e81">gather</text>
+  </g>
+  <g>
+    <rect x="270" y="64" width="120" height="52" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+    <text x="330" y="95" text-anchor="middle" font-size="14" fill="#312e81">retrieve</text>
+  </g>
+  <g>
+    <rect x="430" y="64" width="120" height="52" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+    <text x="490" y="95" text-anchor="middle" font-size="14" fill="#312e81">generate</text>
+  </g>
+  <g>
+    <rect x="590" y="64" width="120" height="52" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+    <text x="650" y="95" text-anchor="middle" font-size="14" fill="#312e81">adapt</text>
+  </g>
+
+  <!-- call_model: dashed border marks it as the conditional routing node -->
+  <g>
+    <rect x="750" y="64" width="140" height="52" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="2" stroke-dasharray="5 3"/>
+    <text x="820" y="95" text-anchor="middle" font-size="14" fill="#312e81">call_model</text>
+  </g>
+
+  <!-- execute_tool: distinct fill marks it as a tool node -->
+  <g>
+    <rect x="750" y="230" width="140" height="52" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+    <text x="820" y="261" text-anchor="middle" font-size="14" fill="#78350f">execute_tool</text>
+  </g>
+
+  <!-- END -->
+  <circle cx="980" cy="90" r="26" fill="#e5e7eb" stroke="#475569" stroke-width="2"/>
+  <text x="980" y="95" text-anchor="middle" font-size="13" font-weight="600" fill="#334155">END</text>
+
+  <!-- legend -->
+  <g font-size="12" fill="#475569">
+    <rect x="30" y="318" width="16" height="16" rx="3" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+    <text x="52" y="330">node</text>
+
+    <rect x="120" y="318" width="16" height="16" rx="3" fill="#eef2ff" stroke="#4f46e5" stroke-width="2" stroke-dasharray="4 3"/>
+    <text x="142" y="330">conditional routing node</text>
+
+    <rect x="300" y="318" width="16" height="16" rx="3" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+    <text x="322" y="330">tool node</text>
+
+    <line x1="410" y1="326" x2="440" y2="326" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="450" y="330">edge</text>
+
+    <line x1="510" y1="326" x2="540" y2="326" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowLoop)"/>
+    <text x="550" y="330">loop</text>
+  </g>
+</svg>

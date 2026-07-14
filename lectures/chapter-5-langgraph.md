@@ -2,7 +2,7 @@
 
 ## Overview
 
-A single LCEL chain is a straight line: prompt in, answer out. A real assistant needs branches — does the model want to call a tool, or just answer? — and state carried across multiple steps: a new hire's role, tasks, and current plan, threaded through gather, retrieve, generate, and adapt. LangGraph models that as a graph instead of nested conditionals bolted onto a chain. This chapter builds that graph, plus the tool-calling loop that lets the assistant act mid-conversation. LangGraph's persistence/checkpointing features (`MemorySaver`, thread-level memory across requests) are out of scope: the inference server built in this course is stateless per request by design — every call carries its own context (task list, plan) from the database API rather than the graph remembering across calls.
+A single LCEL chain is a straight line: prompt in, answer out. A real assistant needs branches — does the model want to call a tool, or just answer? — and state carried across multiple steps: a new hire's role, tasks, and current plan, threaded through gather, retrieve, generate, and adapt. LangGraph models that as a graph instead of nested conditionals bolted onto a chain. This chapter builds that graph, plus the tool-calling loop that lets the assistant act mid-conversation.
 
 ## State
 
@@ -29,6 +29,14 @@ class OnboardingState(TypedDict):
 ```
 
 `messages` and `last_response` only matter once the graph includes the tool-calling loop later in this chapter — the gather → retrieve → generate → adapt pipeline above doesn't touch them. They're declared up front anyway because every node shares one state shape; a node that doesn't need a field simply doesn't read it.
+
+## Graphs, Briefly
+
+A graph is just a set of **nodes** (steps) connected by **edges** (which step runs next), instead of one straight line of code. LangGraph is that same idea, typed: nodes are functions, edges are the paths between them, and the graph itself decides which node runs next based on shared state.
+
+![A LangGraph graph: a linear pipeline of nodes, a conditional branch, and a loop](assets/chapter-5-graph-diagram.svg)
+
+The straight line across the top (`gather` → `retrieve` → `generate` → `adapt`) is a fixed sequence of edges — always the same next node. `call_model`, built later in this chapter, is different: its outgoing edge is conditional, branching to `execute_tool` or straight to `END` depending on the model's response, and `execute_tool` loops back to `call_model` so the model can react to a tool's result before deciding what to do next.
 
 ## Nodes
 
@@ -80,7 +88,7 @@ onboarding_graph = graph.compile()
 
 ## Conditional Edges
 
-A conditional edge routes based on the current state instead of always going to the same next node — this is how the assistant decides between "just answer" and "call a tool."
+A conditional edge routes based on the current state instead of always going to the same next node — this is how the assistant decides between "just answer" and "call a tool." The router function's return value is the name of the next node to run:
 
 ```python
 def route_after_model(state: OnboardingState) -> str:
