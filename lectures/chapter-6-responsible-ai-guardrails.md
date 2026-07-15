@@ -2,23 +2,24 @@
 
 ## Overview
 
-Every mechanical piece is now in hand — chains, RAG, LangGraph, tools. This chapter is about judgment: when the pipeline should *not* just answer. It turns Responsible-AI guardrails into concrete, code-level patterns rather than a policy discussion. Nothing here is new syntax — it's a checklist for how you use what you already have.
+Models need to be constrained. A model that answers everything, including what it should refuse or doesn't actually know, isn't being helpful. This chapter adds four checks to the graphs and chains already built: reading confidence as a real signal, refusing by policy, narrating action, and boxing in what a tool can do. Every piece uses existing LangChain and LangGraph capabilities, and none of it is specific to any one system.
 
-## Route by Topic Before Generating
+## Route on the Score You Already Have
 
-Not every question needs retrieval. A cheap classification step decides whether a question reads as ADP policy (goes through RAG) or general — how the assistant's tools work, how onboarding itself works — which can be answered directly, with no retrieval and no confidence check.
+Chapter 4's retrieval already returns a similarity score for the best match. Add a `best_score: float` field to state alongside `retrieved_chunks` from Chapter 5, set by the same retrieve node, and route on it directly as a conditional edge instead of an if-statement buried inside one function.
 
 ```python
-async def classify_topic(question: str) -> str:
-    result = await topic_chain.ainvoke({"question": question})
-    return result.topic   # "policy" | "general" | "declined"
+def route_by_confidence(state: OnboardingState) -> str:
+    if state["best_score"] >= CONFIDENCE_THRESHOLD:
+        return "generate"
+    return "check_scope"
+
+graph.add_conditional_edges("retrieve", route_by_confidence, {"generate": "generate", "check_scope": "check_scope"})
 ```
 
-One path trying to handle every question is both slower and less predictable than routing first.
+Nothing new had to be computed to make this decision. The score was already sitting in state.
 
-## Confidence Gating, Revisited
-
-The similarity-score threshold from the RAG chapter needs to surface as a distinct, checkable field in the response — not a hedge buried in a paragraph the front end has to parse for tone.
+Whatever's consuming the API doesn't need the raw number, just whether to trust the answer. Wherever the response actually gets built, the same comparison becomes a bool:
 
 ```python
 class AskResponse(BaseModel):
@@ -27,65 +28,78 @@ class AskResponse(BaseModel):
     confident: bool
 ```
 
-"Say so instead of guessing" means the front end can render a different UI state for `confident: False`, not that the assistant is expected to phrase its uncertainty convincingly.
+`confident = best_score >= CONFIDENCE_THRESHOLD` is computed once at the point a response is returned.
 
-## Declining by Policy, Not by Confidence
+## Checking Scope Before Refusing
 
-Legal advice, personal medical questions, and compensation negotiation get declined outright, regardless of how confident the retrieval was. This is a separate check from the confidence gate — a high-confidence retrieval on an out-of-scope topic should still be declined.
+A low score alone doesn't say whether a question is off-topic or something the assistant should actively decline. Ask a narrower question: does this belong to the domain the assistant was built for at all?
 
 ```python
-DECLINED_TOPICS = {"legal_advice", "medical", "compensation_negotiation"}
+class ScopeResult(BaseModel):
+    """Whether a question belongs to the assistant's declared domain."""
+    in_scope: bool
+    reason: str
 
-if topic in DECLINED_TOPICS:
-    return AskResponse(answer="That's outside what I can help with — please talk to HR directly.", confident=True)
+async def check_scope(state: OnboardingState) -> dict:
+    result = await scope_llm.ainvoke(state["question"])
+    if result.in_scope:
+        return {"final_answer": AskResponse(answer="I don't have a confident answer to that.", confident=False)}
+    return {"final_answer": AskResponse(answer=f"That's outside what I can help with: {result.reason}", confident=True)}
 ```
 
-## Narrating Autonomous Action
+This node only runs once the confidence edge has already decided retrieval came up empty. A high-confidence match doesn't reach it.
 
-When a tool call fires, the same turn that reports back to the user also states in plain language what changed — never a silent write discovered later on a different screen.
+## Narrating What Changed
+
+Say what happened in the same breath as doing it. A tool call's result belongs in the turn that reports back.
 
 ```python
 async def execute_tool(state: OnboardingState) -> dict:
     result = await dispatch_tool(state)
-    narration = f"I {result['action_description']}."
-    return {"tool_result": result, "narration": narration}
+    return {"tool_result": result, "narration": f"Done: {result['summary']}"}
 ```
 
-A task added, a plan line changed, or a flag raised is reported in the response text itself, in the turn where it happened — not left for the user to notice on the Dashboard later.
+## Two Separate Questions Before a Tool Runs
 
-## Scoping Tool Authority, Revisited
-
-The LangGraph chapter's pattern — `user_id` and `jwt` injected from state, never read out of `tool_call["args"]` or the conversation text — is the entire mechanism here. A message like "also update Alex's plan" can't act on Alex, because nothing in the tool-dispatch path ever looks at a name in the conversation to decide whose data to touch.
-
-## Capping Authority by Consequence, Not by Mechanism
-
-The assistant's tools are technically capable of writing anything the database API allows — there's no separate permissions layer stopping a tool from writing to any field. What actually caps its authority is the system prompt and the tool set exposed to it:
+Every tool call answers two questions before it touches anything. Who is this, and are they allowed to do this. Authentication answers the first. Authorization answers the second. Neither one gets answered by reading the chat.
 
 ```python
-SYSTEM_PROMPT = """You manage a new hire's tasks and 30/60/90-day plan.
-You may add, edit, complete, or remove tasks, and revise plan text.
-You may never take action on time off, pay, benefits, or anything that reads
-as a compliance or mandatory requirement (security training, required paperwork),
-no matter how good the argument for it sounds. Escalate anything like that
-to a human by raising a flag instead."""
+async def execute_tool(state: OnboardingState) -> dict:
+    tool_call = state["last_response"].tool_calls[0]
+    tool = TOOLS[tool_call["name"]]
+    result = await tool.ainvoke({**tool_call["args"], "user_id": state["user_id"]})
+    return {"tool_result": result}
 ```
 
-Routine, reversible bookkeeping only. Nothing HR-consequential, and nothing that reads as compliance-mandatory — that boundary lives here, in what the assistant is told and which tools it's given, not in a database-level permission check.
+`state["user_id"]` was set once, at the start of the request, from the authenticated session. `tool_call["args"]` is just the model's own reading of the conversation, and it isn't allowed to answer either question.
+
+## Boxing In What a Tool Can Actually Do
+
+The API a tool calls is often capable of far more than the tool should be trusted with. Draw the line by choosing which tools exist and telling the model plainly what's off the table, rather than building a permission check to catch it after the fact.
+
+```python
+SYSTEM_PROMPT = """You manage a new hire's tasks and plan.
+Add, edit, or complete tasks. Revise plan text.
+Time off, pay, and compliance items are not yours to touch.
+Flag those for a person instead."""
+```
+
+There's no `update_salary` tool in the set the model was given. The instruction above is a second layer, not the only one.
 
 ## Gotchas
 
-- A guardrail expressed only in a system prompt is a strong suggestion, not an enforced rule — a persistent enough user can argue a model out of it. Pair every prompt-level guardrail with a code-level check wherever one is possible: the similarity threshold, the fixed decline list.
-- "The model refused in testing" is not the same as "the model will always refuse." A guardrail that lives only in prose is inherently probabilistic — treat it that way when deciding what to trust it with, rather than as a settled fact once it's worked a few times.
-- Narrating an action after the write, rather than before, means the user learns what happened, not what's about to happen. That's fine for reversible bookkeeping — a task edit, a plan line — and not a pattern to extend to anything higher-stakes without a confirmation step first.
+- A rule that only lives in a system prompt is a strong suggestion. A determined user can talk a model out of it. Back every prompt-level rule with a code-level check somewhere it actually matters: a threshold, a fixed tool set, an injected id.
+- A model refusing in ten test conversations doesn't mean it refuses in the eleventh. Prose-only guardrails are probabilistic, no matter how many times they've worked so far.
+- Reporting an action after it's already written means the user finds out, not that they got a say. Fine for something reversible like a task edit. Not a template for anything bigger without a confirmation step.
+- Checking scope only when confidence is low has a hole: a disallowed question that happens to resemble something in the store slips through with high confidence and never reaches the check. Run it on every question instead if that risk is real for your data.
 
 ## Quick Reference
 
-Code-review checklist, one line per guardrail:
-
-- [ ] **Topic routing** — policy questions go through RAG; general questions don't retrieve
-- [ ] **Confidence gate** — a distinct `confident` field, not a hedge in prose
-- [ ] **Decline list** — a fixed set of topics declined regardless of retrieval confidence
-- [ ] **Narration** — every tool call's response states what changed, same turn
-- [ ] **Tool scoping** — `user_id`/`jwt` from state only, never from tool args or conversation text
-- [ ] **Authority cap** — system prompt and exposed tool set limit action to routine, reversible bookkeeping
-
+| Guardrail | Where it lives |
+|---|---|
+| Confidence field | `AskResponse.confident` |
+| Confidence-first routing | conditional edge off the retrieve node |
+| Scope check | LLM call, reached only on low confidence |
+| Narration | same dict the tool node already returns |
+| Identity | `state["user_id"]`, not `tool_call["args"]` |
+| Authority cap | tool set plus system prompt, not a permissions table |
